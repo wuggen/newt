@@ -1,14 +1,25 @@
 //! The Newt `Error` type.
 
+use std::path::{Path, PathBuf};
+
 /// Newt errors.
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum Error {
     /// An error parsing a configuration file.
-    #[error("Error in configuration at line {line}: {kind}")]
+    #[error(
+        "Error in {} at line {line}: {kind}",
+        .path
+            .as_ref()
+            .map(|p| p.display().to_string())
+            .unwrap_or_else(|| String::from("configuration"))
+    )]
     Config {
         /// The line of the file that contains the error.
         line: usize,
+
+        /// The path to the configuration file, if available.
+        path: Option<PathBuf>,
 
         /// The kind of error.
         kind: ConfigErrorKind,
@@ -29,13 +40,15 @@ impl PartialEq for Error {
             (
                 Error::Config {
                     line: selfline,
+                    path: selfpath,
                     kind: selfkind,
                 },
                 Error::Config {
                     line: otherline,
+                    path: otherpath,
                     kind: otherkind,
                 },
-            ) => selfline == otherline && selfkind == otherkind,
+            ) => selfline == otherline && selfkind == otherkind && selfpath == otherpath,
 
             _ => false,
         }
@@ -71,8 +84,12 @@ pub enum ConfigErrorKind {
 
 impl ConfigErrorKind {
     /// Build an [`Error::Config`] from this `ConfigErrorKind`.
-    pub fn at_line(self, line: usize) -> Error {
-        Error::Config { line, kind: self }
+    pub fn at_line<P: AsRef<Path>>(self, line: usize, path: Option<P>) -> Error {
+        Error::Config {
+            line,
+            path: path.map(|p| PathBuf::from(p.as_ref())),
+            kind: self,
+        }
     }
 }
 
@@ -85,6 +102,7 @@ where
 {
     Err(Error::Config {
         line,
+        path: None,
         kind: ConfigErrorKind::UnrecognizedKey {
             key: String::from(key),
         },
@@ -97,6 +115,7 @@ where
 {
     Err(Error::Config {
         line,
+        path: None,
         kind: ConfigErrorKind::IllegalToken {
             token: String::from(tok),
         },
@@ -106,6 +125,7 @@ where
 pub(crate) fn unexpected_eof<T>(line: usize) -> Result<T> {
     Err(Error::Config {
         line,
+        path: None,
         kind: ConfigErrorKind::UnexpectedEof,
     })
 }
@@ -113,6 +133,7 @@ pub(crate) fn unexpected_eof<T>(line: usize) -> Result<T> {
 pub(crate) fn unterminated_string<T>(line: usize) -> Result<T> {
     Err(Error::Config {
         line,
+        path: None,
         kind: ConfigErrorKind::UnterminatedString,
     })
 }

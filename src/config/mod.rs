@@ -3,58 +3,81 @@
 use crate::error::*;
 use std::fs::File;
 use std::io::Read;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
+mod env;
 mod parse;
 
-fn config_paths() -> impl Iterator<Item = PathBuf> {
-    let mut num = 0;
-    std::iter::from_fn(move || loop {
-        match num {
-            0 => {
-                if let Some(mut base) = dirs::config_dir() {
-                    base.push("newt/config");
-                    return Some(base);
-                }
-            }
+#[cfg(not(debug_assertions))]
+const CONFIG_PATHS: &[&str] = &[
+    "$NEWT_CONFIG",
+    "$XDG_CONFIG_HOME/newt/config",
+    "$HOME/.config/newt/config",
+    "$HOME/.newtrc",
+    "/etc/newtrc",
+];
 
-            1 => {
-                if let Some(mut base) = dirs::home_dir() {
-                    base.push(".newtrc");
-                    return Some(base);
-                }
-            }
+#[cfg(debug_assertions)]
+const CONFIG_PATHS: &[&str] = &[
+    "$NEWT_CONFIG",
+    concat!(env!("CARGO_MANIFEST_DIR"), "/newtrc"),
+    concat!(env!("CARGO_MANIFEST_DIR"), "/config"),
+    "./newtrc",
+    "./config",
+];
 
-            _ => return None,
-        }
+#[cfg(not(debug_assertions))]
+const NOTES_PATHS: &[&str] = &["$NEWT_NOTES_DIR", "$HOME/.newt"];
 
-        num += 1;
-    })
-}
+#[cfg(debug_assertions)]
+const NOTES_PATHS: &[&str] = &[
+    "$NEWT_NOTES_DIR",
+    concat!(env!("CARGO_MANIFEST_DIR"), "/notes"),
+    "./notes",
+];
 
 fn find_conf_file() -> Option<PathBuf> {
-    for path in config_paths() {
+    for path in CONFIG_PATHS
+        .iter()
+        .filter_map(env::interpolate)
+        .map(PathBuf::from)
+    {
         if let Ok(metadata) = std::fs::metadata(&path) {
             if metadata.is_file() {
+                dbg!("Using configuration file {}", path.display());
                 return Some(path);
             }
         }
     }
 
+    dbg!("No configuration file found, using default config");
     None
 }
 
-/// Resolve the Newt configuration.
-pub fn resolve_configuration() -> Result<Config> {
+/// Resolve the Newt configuration from the runtime environment.
+pub fn resolve() -> Result<Config> {
     if let Some(path) = find_conf_file() {
-        let mut file = File::open(&path)?;
-        let mut contents = String::new();
-        file.read_to_string(&mut contents)?;
-        Config::from_str(&contents)
+        read_config_file(path)
     } else {
         Ok(Config::default())
     }
+}
+
+/// Read the Newt configuration from the given file.
+pub fn read_config_file<P: AsRef<Path>>(path: P) -> Result<Config> {
+    let path = PathBuf::from(path.as_ref());
+    let mut file = File::open(&path)?;
+    let mut contents = String::new();
+    file.read_to_string(&mut contents)?;
+    Config::from_str(&contents).map_err(|err| match err {
+        Error::Config { line, kind, .. } => Error::Config {
+            line,
+            kind,
+            path: Some(path),
+        },
+        e => e,
+    })
 }
 
 /// Newt configuration options.
@@ -68,10 +91,22 @@ impl Config {
     /// The configured notes directory, if available.
     pub fn notes_dir(&self) -> Option<PathBuf> {
         self.notes_dir.clone().or_else(|| {
-            dirs::home_dir().map(|mut base| {
-                base.push(".newt");
-                base
-            })
+            NOTES_PATHS
+                .iter()
+                .filter_map(env::interpolate)
+                .map(PathBuf::from)
+                .find(|path| {
+                    if let Ok(md) = std::fs::metadata(path) {
+                        if md.is_dir() {
+                            dbg!("Using notes directory {}", path.display());
+                            true
+                        } else {
+                            false
+                        }
+                    } else {
+                        false
+                    }
+                })
         })
     }
 }

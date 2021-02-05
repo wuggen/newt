@@ -1,7 +1,8 @@
-use structopt::StructOpt;
-use newt::cli::Options;
+use newt::cli;
 
 fn main() {
-    let options = Options::from_args();
-    println!("{:#?}", options);
+    cli::run().unwrap_or_else(|err| {
+        eprintln!("{}", err);
+        std::process::exit(1);
+    });
 }
