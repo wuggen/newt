@@ -22,8 +22,15 @@ pub fn interpolate<S: AsRef<str>>(text: S) -> Option<OsString> {
 
                 Token::Var(name) => {
                     if let Some(val) = env_var(name) {
-                        r.push(val);
-                        res = Some(r);
+                        if let Some(s) = val.to_str() {
+                            if let Some(interp) = interpolate(s) {
+                                r.push(interp);
+                                res = Some(r);
+                            }
+                        } else {
+                            r.push(val);
+                            res = Some(r);
+                        }
                     }
                 }
             }
@@ -217,6 +224,11 @@ impl<I: Iterator<Item = char>> Iterator for Lexer<I> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use std::sync::Mutex;
+
+    lazy_static! {
+        static ref ENV_LOCK: Mutex<()> = Mutex::new(());
+    }
 
     fn text<S>(s: S) -> Token
     where
@@ -287,6 +299,7 @@ mod test {
 
     #[test]
     fn interpolate_vars_set() {
+        let _guard = ENV_LOCK.lock().unwrap();
         env::set_var("FOO", "bar");
         let input = "/home/$FOO/baz";
         let res = interpolate(input).unwrap();
@@ -295,8 +308,30 @@ mod test {
 
     #[test]
     fn interpolate_vars_unset() {
+        let _guard = ENV_LOCK.lock().unwrap();
         env::remove_var("FOO");
         let input = "/home/$FOO/baz";
+        assert!(interpolate(input).is_none());
+    }
+
+    #[test]
+    fn recursive_interpolation() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        env::set_var("FOO", "$BAR/$BAZ");
+        env::set_var("BAR", "bar");
+        env::set_var("BAZ", "baz");
+        let input = "/home/$FOO";
+        let res = interpolate(input).unwrap();
+        assert_eq!(res, "/home/bar/baz");
+    }
+
+    #[test]
+    fn recursive_interpolation_subvars_unset() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        env::set_var("FOO", "$BAR/$BAZ");
+        env::set_var("BAR", "bar");
+        env::remove_var("BAZ");
+        let input = "/home/$FOO";
         assert!(interpolate(input).is_none());
     }
 }

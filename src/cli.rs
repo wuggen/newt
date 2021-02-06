@@ -1,7 +1,7 @@
 //! Command-line invocation and options.
 
-use crate::error::*;
 use crate::config::{self, Config};
+use crate::error::*;
 use std::path::PathBuf;
 use structopt::StructOpt;
 
