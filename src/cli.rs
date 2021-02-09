@@ -44,6 +44,14 @@ pub struct Options {
     #[structopt(short = "f")]
     pub config: Option<PathBuf>,
 
+    /// The directory in which to store notes.
+    #[structopt(short = "d", long)]
+    pub notes_dir: Option<PathBuf>,
+
+    /// The editor command to invoke for editing notes.
+    #[structopt(short, long)]
+    pub editor: Option<PathBuf>,
+
     /// Print verbose debugging output.
     #[structopt(long, short)]
     pub verbose: bool,
@@ -61,6 +69,11 @@ impl Options {
         } else {
             config::resolve()
         }
+        .map(|config| {
+            config
+                .with_notes_dir(self.notes_dir.clone())
+                .with_editor(self.editor.clone())
+        })
     }
 }
 
@@ -68,6 +81,24 @@ impl Options {
 pub fn execute(command: Command, config: Config) -> Result<()> {
     println!("{:#?}", command);
     println!("{:#?}", config);
+
+    println!(
+        "Notes dir: {}",
+        if let Some(path) = config.notes_dir() {
+            path.display().to_string()
+        } else {
+            String::from("<not found>")
+        }
+    );
+    println!(
+        "Editor: {}",
+        if let Some(command) = config.editor() {
+            command.to_string_lossy().into_owned()
+        } else {
+            String::from("<not found>")
+        }
+    );
+
     Ok(())
 }
 

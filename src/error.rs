@@ -25,6 +25,10 @@ pub enum Error {
         kind: ConfigErrorKind,
     },
 
+    /// No editor was configured or could be found.
+    #[error("No editor configured or found")]
+    NoEditor,
+
     /// A system IO error.
     #[error("File IO error: {source}")]
     FileIo {
