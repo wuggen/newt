@@ -8,5 +8,6 @@ edition = "2018"
 
 [dependencies]
 lazy_static = "1.4.0"
+sha1 = "0.6.0"
 structopt = "0.3.21"
 thiserror = "1.0.23"

@@ -8,6 +8,7 @@ use std::str::FromStr;
 
 mod env;
 mod parse;
+mod sh;
 
 #[cfg(not(debug_assertions))]
 const CONFIG_PATHS: &[&str] = &[
