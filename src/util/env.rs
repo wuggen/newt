@@ -10,29 +10,19 @@ pub fn env_var<K: AsRef<OsStr>>(name: K) -> Option<OsString> {
     }
 }
 
-pub fn interpolate<S: AsRef<str>>(text: S) -> Option<OsString> {
-    let mut res = Some(OsString::new());
-    Lexer::new(text.as_ref().chars()).for_each(|tok| {
-        let r = res.take();
-        if let Some(mut r) = r {
-            match tok {
-                Token::Text(text) => {
-                    r.push(text);
-                    res = Some(r);
-                }
+pub fn interpolate<S: AsRef<str>>(text: S) -> OsString {
+    let mut res = OsString::new();
+    Lexer::new(text.as_ref().chars()).for_each(|tok| match tok {
+        Token::Text(text) => {
+            res.push(text);
+        }
 
-                Token::Var(name) => {
-                    if let Some(val) = env_var(name) {
-                        if let Some(s) = val.to_str() {
-                            if let Some(interp) = interpolate(s) {
-                                r.push(interp);
-                                res = Some(r);
-                            }
-                        } else {
-                            r.push(val);
-                            res = Some(r);
-                        }
-                    }
+        Token::Var(name) => {
+            if let Some(val) = env_var(name) {
+                if let Some(s) = val.to_str() {
+                    res.push(interpolate(s));
+                } else {
+                    res.push(val);
                 }
             }
         }
@@ -321,16 +311,8 @@ mod test {
         let _guard = ENV_LOCK.lock().unwrap();
         env::set_var("FOO", "bar");
         let input = "/home/$FOO/baz";
-        let res = interpolate(input).unwrap();
+        let res = interpolate(input);
         assert_eq!(res, "/home/bar/baz");
-    }
-
-    #[test]
-    fn interpolate_vars_unset() {
-        let _guard = ENV_LOCK.lock().unwrap();
-        env::remove_var("FOO");
-        let input = "/home/$FOO/baz";
-        assert!(interpolate(input).is_none());
     }
 
     #[test]
@@ -340,17 +322,7 @@ mod test {
         env::set_var("BAR", "bar");
         env::set_var("BAZ", "baz");
         let input = "/home/$FOO";
-        let res = interpolate(input).unwrap();
+        let res = interpolate(input);
         assert_eq!(res, "/home/bar/baz");
-    }
-
-    #[test]
-    fn recursive_interpolation_subvars_unset() {
-        let _guard = ENV_LOCK.lock().unwrap();
-        env::set_var("FOO", "$BAR/$BAZ");
-        env::set_var("BAR", "bar");
-        env::remove_var("BAZ");
-        let input = "/home/$FOO";
-        assert!(interpolate(input).is_none());
     }
 }

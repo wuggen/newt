@@ -1,14 +1,14 @@
 //! Configuration file definitions.
 
 use crate::error::*;
+use crate::util::env;
+
 use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
-mod env;
 mod parse;
-mod sh;
 
 #[cfg(not(debug_assertions))]
 const CONFIG_PATHS: &[&str] = &[
@@ -43,7 +43,7 @@ const EDITORS: &[&str] = &["$EDITOR", "vim", "vi", "nano"];
 fn find_conf_file() -> Option<PathBuf> {
     for path in CONFIG_PATHS
         .iter()
-        .filter_map(env::interpolate)
+        .map(env::interpolate)
         .map(PathBuf::from)
     {
         if let Ok(metadata) = std::fs::metadata(&path) {
@@ -97,7 +97,7 @@ impl Config {
         self.notes_dir.clone().or_else(|| {
             NOTES_PATHS
                 .iter()
-                .filter_map(env::interpolate)
+                .map(env::interpolate)
                 .map(PathBuf::from)
                 .find(|path| {
                     if let Ok(md) = std::fs::metadata(path) {
@@ -119,7 +119,7 @@ impl Config {
         self.editor.clone().or_else(|| {
             EDITORS
                 .iter()
-                .filter_map(env::interpolate)
+                .map(env::interpolate)
                 .map(PathBuf::from)
                 .find(|command| env::search_path(&command).is_some())
         })

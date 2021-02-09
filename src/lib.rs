@@ -14,6 +14,7 @@ macro_rules! dbg {
 }
 
 pub(crate) mod debug;
+pub(crate) mod util;
 
 pub mod cli;
 pub mod config;
