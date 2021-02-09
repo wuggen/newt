@@ -1,5 +1,6 @@
 use std::env::{self, VarError};
 use std::ffi::{OsStr, OsString};
+use std::path::PathBuf;
 
 pub fn env_var<K: AsRef<OsStr>>(name: K) -> Option<OsString> {
     match env::var(name) {
@@ -38,6 +39,24 @@ pub fn interpolate<S: AsRef<str>>(text: S) -> Option<OsString> {
     });
 
     res
+}
+
+pub fn search_path<S: AsRef<OsStr>>(command: S) -> Option<PathBuf> {
+    let cmd_path = PathBuf::from(OsString::from(command.as_ref()));
+    if cmd_path.is_absolute() {
+        Some(cmd_path)
+    } else {
+        for mut base_path in env::split_paths(&env_var("PATH")?) {
+            base_path.extend(&cmd_path);
+            if let Ok(md) = std::fs::metadata(&base_path) {
+                if md.is_file() {
+                    return Some(base_path);
+                }
+            }
+        }
+
+        None
+    }
 }
 
 fn is_id(c: char) -> bool {

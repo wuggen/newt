@@ -8,7 +8,6 @@ use std::str::FromStr;
 
 mod env;
 mod parse;
-mod sh;
 
 #[cfg(not(debug_assertions))]
 const CONFIG_PATHS: &[&str] = &[
@@ -37,6 +36,8 @@ const NOTES_PATHS: &[&str] = &[
     concat!(env!("CARGO_MANIFEST_DIR"), "/notes"),
     "./notes",
 ];
+
+const EDITORS: &[&str] = &["$EDITOR", "vim", "vi", "nano"];
 
 fn find_conf_file() -> Option<PathBuf> {
     for path in CONFIG_PATHS
@@ -86,6 +87,7 @@ pub fn read_config_file<P: AsRef<Path>>(path: P) -> Result<Config> {
 #[non_exhaustive]
 pub struct Config {
     notes_dir: Option<PathBuf>,
+    editor: Option<PathBuf>,
 }
 
 impl Config {
@@ -110,6 +112,35 @@ impl Config {
                 })
         })
     }
+
+    /// The configured editor command, if available.
+    pub fn editor(&self) -> Option<PathBuf> {
+        self.editor.clone().or_else(|| {
+            EDITORS
+                .iter()
+                .filter_map(env::interpolate)
+                .map(PathBuf::from)
+                .find(|command| env::search_path(&command).is_some())
+        })
+    }
+}
+
+impl Config {
+    /// Set the notes dir on this `Config`.
+    pub fn with_notes_dir<O: Into<Option<PathBuf>>>(self, notes_dir: O) -> Self {
+        Config {
+            notes_dir: notes_dir.into().or(self.notes_dir),
+            ..self
+        }
+    }
+
+    /// Set the editor on this `Config`.
+    pub fn with_editor<O: Into<Option<PathBuf>>>(self, editor: O) -> Self {
+        Config {
+            editor: editor.into().or(self.editor),
+            ..self
+        }
+    }
 }
 
 impl FromStr for Config {
@@ -129,6 +160,14 @@ impl FromStr for Config {
                     }
                 }
 
+                "editor" => {
+                    if let Some(command) = lexer.scan()? {
+                        config.editor = Some(PathBuf::from(command));
+                    } else {
+                        return unexpected_eof(lexer.line());
+                    }
+                }
+
                 s => return unrecognized_key(s, lexer.line()),
             }
         }
@@ -142,92 +181,77 @@ mod test {
     use super::*;
     use std::str::FromStr;
 
-    const EMPTY_CONF: &str = "";
-    const WS_CONF: &str = "    \n   \n";
-    const COMMENT_CONF: &str = r#"
-    # Here's a comment
-    # And another one
-
-    ## Some# weird-ass ## extra hashes
-    "#;
-
-    const NOTES_DIR_CONF: &str = "notes_dir ~/.notes\n";
-    const DUPLICATE_NOTES_DIR_CONF: &str = r"
-    notes_dir ~/.notes
-    notes_dir ~/wait/no/this/one # Change it up
-    ";
-
-    const QUOTED_VALUE_CONF: &str = r#"
-    notes_dir "~/My Documents/is this windows"
-    "#;
-
-    const QUOTED_KEY_CONF: &str = r#"
-    "notes_dir" ~ # Not really sure WHY you'd do this but hey
-    "#;
-
-    const MISSING_VALUE_CONF: &str = "notes_dir # lol nope";
-
-    const BAD_KEY_CONF: &str = r#"not_a_key "heya bish""#;
-
     #[test]
     fn empty() {
-        assert_eq!(Config::from_str(EMPTY_CONF).unwrap(), Config::default());
+        let conf = "";
+        assert_eq!(Config::from_str(conf).unwrap(), Config::default());
     }
 
     #[test]
     fn whitespace() {
-        assert_eq!(Config::from_str(WS_CONF).unwrap(), Config::default());
+        let conf = "    \n   \n";
+        assert_eq!(Config::from_str(conf).unwrap(), Config::default());
     }
 
     #[test]
     fn comments() {
-        assert_eq!(Config::from_str(COMMENT_CONF).unwrap(), Config::default());
+        let conf = r#"#Here's a comment
+# And another one
+
+## Some# weird-add ## extra hashes
+"#;
+        assert_eq!(Config::from_str(conf).unwrap(), Config::default());
     }
 
     #[test]
     fn notes_dir() {
-        let expected = Config {
-            notes_dir: Some(PathBuf::from("~/.notes")),
-        };
-        assert_eq!(Config::from_str(NOTES_DIR_CONF).unwrap(), expected);
+        let conf = "notes_dir ~/.notes\n";
+        let expected = Config::default().with_notes_dir(PathBuf::from("~/.notes"));
+        assert_eq!(Config::from_str(conf).unwrap(), expected);
+    }
+
+    #[test]
+    fn editor() {
+        let conf = "editor /usr/bin/fibbldee\n";
+        let expected = Config::default().with_editor(PathBuf::from("/usr/bin/fibbldee"));
+        assert_eq!(Config::from_str(conf).unwrap(), expected);
     }
 
     #[test]
     fn duplicate_keys() {
-        let expected = Config {
-            notes_dir: Some(PathBuf::from("~/wait/no/this/one")),
-        };
-        assert_eq!(
-            Config::from_str(DUPLICATE_NOTES_DIR_CONF).unwrap(),
-            expected
-        );
+        let conf = r"notes_dir ~/.notes
+notes_dir ~/wait/no/this/one # Change it up
+";
+        let expected = Config::default().with_notes_dir(PathBuf::from("~/wait/no/this/one"));
+        assert_eq!(Config::from_str(conf).unwrap(), expected);
     }
 
     #[test]
     fn quoted_value() {
-        let expected = Config {
-            notes_dir: Some(PathBuf::from("~/My Documents/is this windows")),
-        };
-        assert_eq!(Config::from_str(QUOTED_VALUE_CONF).unwrap(), expected);
+        let conf = r#"notes_dir "~/My Documents/is this windows""#;
+        let expected =
+            Config::default().with_notes_dir(PathBuf::from("~/My Documents/is this windows"));
+        assert_eq!(Config::from_str(conf).unwrap(), expected);
     }
 
     #[test]
     fn quoted_key() {
-        let expected = Config {
-            notes_dir: Some(PathBuf::from("~")),
-        };
-        assert_eq!(Config::from_str(QUOTED_KEY_CONF).unwrap(), expected);
+        let conf = r#""notes_dir" ~ # Not really sure WHY you'd do this but hey"#;
+        let expected = Config::default().with_notes_dir(PathBuf::from("~"));
+        assert_eq!(Config::from_str(conf).unwrap(), expected);
     }
 
     #[test]
     fn missing_value() {
-        assert_eq!(Config::from_str(MISSING_VALUE_CONF), unexpected_eof(1),);
+        let conf = "notes_dir # lol nope";
+        assert_eq!(Config::from_str(conf), unexpected_eof(1));
     }
 
     #[test]
     fn bad_key() {
+        let conf = r#"not_a_key "heya bish""#;
         assert_eq!(
-            Config::from_str(BAD_KEY_CONF),
+            Config::from_str(conf),
             unrecognized_key("not_a_key", 1)
         );
     }
