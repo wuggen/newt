@@ -22,14 +22,14 @@ pub enum Command {
 
     /// View a note in the configured pager program.
     View {
-        /// File name of the target note.
-        name: String,
+        /// Index of the file, as displayed by the list command.
+        index: usize,
     },
 
     /// Edit a note in the configured editor.
     Edit {
-        /// File name of the target note.
-        name: String,
+        /// Index of the file, as displayed by the list command.
+        index: usize,
     },
 }
 

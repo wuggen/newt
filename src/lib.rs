@@ -20,3 +20,4 @@ pub mod cli;
 pub mod config;
 pub mod edit;
 pub mod error;
+pub mod notes_dir;
