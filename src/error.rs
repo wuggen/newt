@@ -25,9 +25,20 @@ pub enum Error {
         kind: ConfigErrorKind,
     },
 
+    /// No notes directory was configured or could be found.
+    #[error("No notes directory configured or found")]
+    NoNotesDir,
+
     /// No editor was configured or could be found.
     #[error("No editor configured or found")]
     NoEditor,
+
+    /// The editor command could not be parsed or invoked.
+    #[error("Cannot invoke editor {}", .command.display())]
+    CannotInvokeEditor {
+        /// The offending editor command.
+        command: PathBuf,
+    },
 
     /// A system IO error.
     #[error("File IO error: {source}")]
@@ -99,6 +110,15 @@ impl ConfigErrorKind {
 
 /// `Result` type specialized to Newt errors.
 pub type Result<T, E = Error> = std::result::Result<T, E>;
+
+pub(crate) fn cannot_invoke<S>(command: S) -> Error
+where
+    PathBuf: From<S>,
+{
+    Error::CannotInvokeEditor {
+        command: PathBuf::from(command),
+    }
+}
 
 pub(crate) fn unrecognized_key<T, S>(key: S, line: usize) -> Result<T>
 where

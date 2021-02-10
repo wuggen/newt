@@ -1,8 +1,11 @@
 //! Command-line invocation and options.
 
 use crate::config::{self, Config};
+use crate::edit;
 use crate::error::*;
+
 use std::path::PathBuf;
+
 use structopt::StructOpt;
 
 /// Subcommand.
@@ -11,7 +14,6 @@ pub enum Command {
     /// Create a new note. Default if no other command is specified.
     New {
         /// File name for the created note. Generates a unique name by default.
-        #[structopt(short, long)]
         name: Option<String>,
     },
 
@@ -79,25 +81,25 @@ impl Options {
 
 /// Execute the given command with the given configuration.
 pub fn execute(command: Command, config: Config) -> Result<()> {
-    println!("{:#?}", command);
-    println!("{:#?}", config);
+    match command {
+        Command::New { name } => {
+            let name = name
+                .map(|n| Ok(PathBuf::from(n)))
+                .unwrap_or_else(|| edit::new_file_name(&config))?;
+            let status = edit::edit_note(&config, &name)?;
+            if !status.success() {
+                eprintln!("Warning: editor process returned with status {}", status);
+            }
+        }
 
-    println!(
-        "Notes dir: {}",
-        if let Some(path) = config.notes_dir() {
-            path.display().to_string()
-        } else {
-            String::from("<not found>")
+        //Command::List => {
+        //    todo!()
+        //}
+
+        c => {
+            eprintln!("Command {:?} is not yet supported", c);
         }
-    );
-    println!(
-        "Editor: {}",
-        if let Some(command) = config.editor() {
-            command.to_string_lossy().into_owned()
-        } else {
-            String::from("<not found>")
-        }
-    );
+    }
 
     Ok(())
 }

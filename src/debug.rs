@@ -1,7 +1,13 @@
 use std::sync::RwLock;
 
+#[cfg(not(test))]
 lazy_static! {
     static ref VERBOSE: RwLock<bool> = RwLock::new(false);
+}
+
+#[cfg(test)]
+lazy_static! {
+    static ref VERBOSE: RwLock<bool> = RwLock::new(true);
 }
 
 /// Set the global debugging verbosity.
