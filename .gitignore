@@ -4,3 +4,7 @@
 /notes
 newtrc
 ./config
+
+/pkg/*
+!/pkg/PKGBUILD
+!/pkg/README.md

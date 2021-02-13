@@ -1,0 +1,41 @@
+# Maintainer: John Andrews <theunderdog09@gmail.com>
+pkgname=newt
+pkgver=0.1.0
+pkgrel=1
+epoch=
+pkgdesc="Minimal CLI note-taking manager"
+arch=('any')
+license=('BSD')
+groups=()
+depends=()
+makedepends=('cargo' 'git' 'kbfs')
+checkdepends=()
+optdepends=()
+provides=()
+conflicts=()
+replaces=()
+backup=()
+options=()
+install=
+changelog=
+source=("git+keybase://private/theunderdog09/newt")
+md5sums=('SKIP')
+
+prepare() {
+  return 0
+}
+
+build() {
+	cd "$srcdir/$pkgname"
+	cargo build --locked --release --target-dir=target
+}
+
+check() {
+	cd "$srcdir/$pkgname"
+	cargo test --release --locked --target-dir=target
+}
+
+package() {
+	cd "$srcdir/$pkgname"
+	install -Dm 755 target/release/$pkgname -t "$pkgdir/usr/bin"
+}
