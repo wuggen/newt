@@ -95,6 +95,13 @@ impl Config {
     pub fn notes_dir(&self) -> Result<PathBuf> {
         self.notes_dir
             .clone()
+            .map(|path| {
+                if let Some(s) = path.to_str() {
+                    PathBuf::from(env::interpolate(s))
+                } else {
+                    path
+                }
+            })
             .or_else(|| {
                 NOTES_PATHS
                     .iter()
@@ -120,6 +127,13 @@ impl Config {
     pub fn editor(&self) -> Result<PathBuf> {
         self.editor
             .clone()
+            .map(|path| {
+                if let Some(s) = path.to_str() {
+                    PathBuf::from(env::interpolate(s))
+                } else {
+                    path
+                }
+            })
             .or_else(|| {
                 EDITORS
                     .iter()
@@ -134,6 +148,13 @@ impl Config {
     pub fn pager(&self) -> Result<PathBuf> {
         self.pager
             .clone()
+            .map(|path| {
+                if let Some(s) = path.to_str() {
+                    PathBuf::from(env::interpolate(s))
+                } else {
+                    path
+                }
+            })
             .or_else(|| {
                 PAGERS
                     .iter()
