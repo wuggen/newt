@@ -33,11 +33,33 @@ pub enum Error {
     #[error("No editor configured or found")]
     NoEditor,
 
+    /// No pager program was configured or could be found.
+    #[error("No pager configured or found")]
+    NoPager,
+
+    /// The user specified a file index that does not exist.
+    #[error("No file with index {index}")]
+    FileIndexOutOfRange {
+        /// The provided, out-of-range index.
+        index: usize,
+    },
+
     /// The editor command could not be parsed or invoked.
-    #[error("Cannot invoke editor {}", .command.display())]
-    CannotInvokeEditor {
-        /// The offending editor command.
+    #[error(
+        "Cannot invoke command `{}`{}",
+        .command.display(),
+        if let Some(err) = .source {
+            format!(": {}", err)
+        } else {
+            String::new()
+        },
+    )]
+    CannotInvoke {
+        /// The offending command.
         command: PathBuf,
+
+        /// The underlying OS error, if any.
+        source: Option<std::io::Error>,
     },
 
     /// A system IO error.
@@ -111,12 +133,14 @@ impl ConfigErrorKind {
 /// `Result` type specialized to Newt errors.
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 
-pub(crate) fn cannot_invoke<S>(command: S) -> Error
+pub(crate) fn cannot_invoke<S, O>(command: S, source: O) -> Error
 where
     PathBuf: From<S>,
+    O: Into<Option<std::io::Error>>,
 {
-    Error::CannotInvokeEditor {
+    Error::CannotInvoke {
         command: PathBuf::from(command),
+        source: source.into(),
     }
 }
 

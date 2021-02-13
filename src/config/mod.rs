@@ -40,12 +40,10 @@ const NOTES_PATHS: &[&str] = &[
 
 const EDITORS: &[&str] = &["$EDITOR", "vim", "vi", "nano"];
 
+const PAGERS: &[&str] = &["$PAGER", "less", "more", "cat"];
+
 fn find_conf_file() -> Option<PathBuf> {
-    for path in CONFIG_PATHS
-        .iter()
-        .map(env::interpolate)
-        .map(PathBuf::from)
-    {
+    for path in CONFIG_PATHS.iter().map(env::interpolate).map(PathBuf::from) {
         if let Ok(metadata) = std::fs::metadata(&path) {
             if metadata.is_file() {
                 dbg!("Using configuration file {}", path.display());
@@ -89,40 +87,61 @@ pub fn read_config_file<P: AsRef<Path>>(path: P) -> Result<Config> {
 pub struct Config {
     notes_dir: Option<PathBuf>,
     editor: Option<PathBuf>,
+    pager: Option<PathBuf>,
 }
 
 impl Config {
     /// The configured notes directory, if available.
-    pub fn notes_dir(&self) -> Option<PathBuf> {
-        self.notes_dir.clone().or_else(|| {
-            NOTES_PATHS
-                .iter()
-                .map(env::interpolate)
-                .map(PathBuf::from)
-                .find(|path| {
-                    if let Ok(md) = std::fs::metadata(path) {
-                        if md.is_dir() {
-                            dbg!("Using notes directory {}", path.display());
-                            true
+    pub fn notes_dir(&self) -> Result<PathBuf> {
+        self.notes_dir
+            .clone()
+            .or_else(|| {
+                NOTES_PATHS
+                    .iter()
+                    .map(env::interpolate)
+                    .map(PathBuf::from)
+                    .find(|path| {
+                        if let Ok(md) = std::fs::metadata(path) {
+                            if md.is_dir() {
+                                dbg!("Using notes directory {}", path.display());
+                                true
+                            } else {
+                                false
+                            }
                         } else {
                             false
                         }
-                    } else {
-                        false
-                    }
-                })
-        })
+                    })
+            })
+            .ok_or(Error::NoNotesDir)
     }
 
     /// The configured editor command, if available.
-    pub fn editor(&self) -> Option<PathBuf> {
-        self.editor.clone().or_else(|| {
-            EDITORS
-                .iter()
-                .map(env::interpolate)
-                .map(PathBuf::from)
-                .find(|command| env::search_path(&command).is_some())
-        })
+    pub fn editor(&self) -> Result<PathBuf> {
+        self.editor
+            .clone()
+            .or_else(|| {
+                EDITORS
+                    .iter()
+                    .map(env::interpolate)
+                    .map(PathBuf::from)
+                    .find(|command| env::search_path(&command).is_some())
+            })
+            .ok_or(Error::NoEditor)
+    }
+
+    /// The configured pager command, if available.
+    pub fn pager(&self) -> Result<PathBuf> {
+        self.pager
+            .clone()
+            .or_else(|| {
+                PAGERS
+                    .iter()
+                    .map(env::interpolate)
+                    .map(PathBuf::from)
+                    .find(|command| env::search_path(&command).is_some())
+            })
+            .ok_or(Error::NoPager)
     }
 }
 
@@ -139,6 +158,14 @@ impl Config {
     pub fn with_editor<O: Into<Option<PathBuf>>>(self, editor: O) -> Self {
         Config {
             editor: editor.into().or(self.editor),
+            ..self
+        }
+    }
+
+    /// Set the pager on this `Config`.
+    pub fn with_pager<O: Into<Option<PathBuf>>>(self, pager: O) -> Self {
+        Config {
+            pager: pager.into().or(self.pager),
             ..self
         }
     }
@@ -164,6 +191,14 @@ impl FromStr for Config {
                 "editor" => {
                     if let Some(command) = lexer.scan()? {
                         config.editor = Some(PathBuf::from(command));
+                    } else {
+                        return unexpected_eof(lexer.line());
+                    }
+                }
+
+                "pager" => {
+                    if let Some(command) = lexer.scan()? {
+                        config.pager = Some(PathBuf::from(command));
                     } else {
                         return unexpected_eof(lexer.line());
                     }
@@ -251,9 +286,6 @@ notes_dir ~/wait/no/this/one # Change it up
     #[test]
     fn bad_key() {
         let conf = r#"not_a_key "heya bish""#;
-        assert_eq!(
-            Config::from_str(conf),
-            unrecognized_key("not_a_key", 1)
-        );
+        assert_eq!(Config::from_str(conf), unrecognized_key("not_a_key", 1));
     }
 }

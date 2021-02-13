@@ -3,6 +3,8 @@
 use crate::config::{self, Config};
 use crate::edit;
 use crate::error::*;
+use crate::notes_dir;
+use crate::util;
 
 use std::path::PathBuf;
 
@@ -31,6 +33,9 @@ pub enum Command {
         /// Index of the file, as displayed by the list command.
         index: usize,
     },
+
+    /// Print the canonicalized path to the configured notes directory.
+    NotesDir,
 }
 
 impl Default for Command {
@@ -79,29 +84,80 @@ impl Options {
     }
 }
 
-/// Execute the given command with the given configuration.
-pub fn execute(command: Command, config: Config) -> Result<()> {
-    match command {
-        Command::New { name } => {
-            let name = name
-                .map(|n| Ok(PathBuf::from(n)))
-                .unwrap_or_else(|| edit::new_file_name(&config))?;
-            let status = edit::edit_note(&config, &name)?;
-            if !status.success() {
-                eprintln!("Warning: editor process returned with status {}", status);
-            }
-        }
+fn new(config: &Config, name: Option<String>) -> Result<()> {
+    let name = name
+        .map(|n| Ok(PathBuf::from(n)))
+        .unwrap_or_else(|| notes_dir::new_file_name(&config))?;
+    let status = edit::edit_note(&config, &name)?;
+    if !status.success() {
+        eprintln!("Warning: editor process returned with status {}", status);
+    }
+    Ok(())
+}
 
-        //Command::List => {
-        //    todo!()
-        //}
+fn list(config: &Config) -> Result<()> {
+    let files = notes_dir::list(config)?;
+    let digits_space = util::digits(files.len()) + 1;
 
-        c => {
-            eprintln!("Command {:?} is not yet supported", c);
-        }
+    let first_lines = files
+        .iter()
+        .map(|name| {
+            let name_space = name.display().to_string().chars().count() + 3;
+            notes_dir::first_line(config, name, 80 - name_space - digits_space)
+        })
+        .collect::<Result<Vec<_>>>()?;
+
+    for (i, (name, line)) in files.iter().zip(first_lines.iter()).enumerate() {
+        println!(
+            "{} {} - {}",
+            i,
+            name.display(),
+            line.as_deref().unwrap_or("<empty>")
+        );
     }
 
     Ok(())
+}
+
+fn view(config: &Config, index: usize) -> Result<()> {
+    let files = notes_dir::list(config)?;
+    let file = files
+        .get(index)
+        .ok_or(Error::FileIndexOutOfRange { index })?;
+    let status = edit::view_note(config, &file)?;
+    if !status.success() {
+        eprintln!("Warning: pager process returned with status {}", status);
+    }
+    Ok(())
+}
+
+fn edit(config: &Config, index: usize) -> Result<()> {
+    let files = notes_dir::list(config)?;
+    let file = files
+        .get(index)
+        .ok_or(Error::FileIndexOutOfRange { index })?;
+    let status = edit::edit_note(config, &file)?;
+    if !status.success() {
+        eprintln!("Warning: editor process returned with status {}", status);
+    }
+    Ok(())
+}
+
+fn notes_dir(config: &Config) -> Result<()> {
+    let path = config.notes_dir()?;
+    println!("{}", path.canonicalize()?.display());
+    Ok(())
+}
+
+/// Execute the given command with the given configuration.
+pub fn execute(command: Command, config: Config) -> Result<()> {
+    match command {
+        Command::New { name } => new(&config, name),
+        Command::List => list(&config),
+        Command::View { index } => view(&config, index),
+        Command::Edit { index } => edit(&config, index),
+        Command::NotesDir => notes_dir(&config),
+    }
 }
 
 /// Run the Newt CLI.
