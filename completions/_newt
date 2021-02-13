@@ -1,0 +1,51 @@
+#compdef newt
+
+_newt_command() {
+  local -a cmds
+  cmds=(
+    edit:"Edit a note"
+    help:"Print help message"
+    list:"List notes"
+    new:"Create a new note (default command)"
+    notes-dir:"Print the notes directory path"
+    view:"View a note in a pager"
+  )
+
+  if (( CURRENT == 1 )); then
+    _describe -t commands "Newt command" cmds
+  else
+    local cmd=$words[1]
+    if ! _call_function ret _newt_$cmd; then
+      ret=0
+    fi
+    return ret
+  fi
+}
+
+_newt_helper_files() {
+  local -a file_list
+  while read index desc; do
+    file_list+="$index:$desc"
+  done < <(newt list)
+  _describe "File index" file_list
+}
+
+_newt_edit() {
+  _newt_helper_files
+}
+
+_newt_new() {
+  _message 'New file name (optional)'
+}
+
+_newt_view() {
+  _newt_helper_files
+}
+
+_arguments \
+  {-h,--help}'[Print help message]' \
+  {-V,--version}'[Print version]' \
+  '-f[Configuration file]:File name:_files' \
+  {-e,--editor}'[Editor]:Editor command:{_command_names -e}' \
+  {-d,--notes-dir}'[Notes directory]:Directory:{_files -/}' \
+  '*::Command:_newt_command'
