@@ -39,6 +39,14 @@ pub fn list(config: &Config) -> Result<Vec<PathBuf>> {
     Ok(file_names.into_iter().map(|(name, _)| name).collect())
 }
 
+/// Get the relative path to the note at the given index, if it exists.
+pub fn file_at_index(config: &Config, index: usize) -> Result<PathBuf> {
+    list(config)?
+        .get(index)
+        .map(PathBuf::from)
+        .ok_or(Error::FileIndexOutOfRange { index })
+}
+
 /// Find a file name that does not yet exist in the configured note directory.
 ///
 /// The returned `PathBuf` is a file name, rather than a path; it _is not_ prefixed by the path to
@@ -55,6 +63,19 @@ pub fn new_file_name(config: &Config) -> Result<PathBuf> {
             idx += 1;
         }
     })
+}
+
+/// Pipe the contents of the file at the given path into the given writer.
+///
+/// The path is taken relative to the configured notes directory.
+pub fn cat_file<P, W>(config: &Config, path: P, writer: &mut W) -> Result<()>
+where
+    P: AsRef<Path>,
+    W: std::io::Write,
+{
+    let path = config.notes_dir()?.join(path);
+    std::io::copy(&mut File::open(path)?, writer)?;
+    Ok(())
 }
 
 /// Get the first non-empty line of the file at the given path relative to the notes directory.

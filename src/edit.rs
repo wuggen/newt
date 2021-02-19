@@ -1,4 +1,4 @@
-//! File finding and editor invocation.
+//! External command invocations.
 
 use crate::config::Config;
 use crate::error::*;

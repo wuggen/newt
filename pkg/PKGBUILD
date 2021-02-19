@@ -1,7 +1,7 @@
 # Maintainer: John Andrews <theunderdog09@gmail.com>
 pkgname=newt
-pkgver=0.1.1
-pkgrel=2
+pkgver=0.1.2
+pkgrel=1
 epoch=
 pkgdesc="Minimal CLI note-taking manager"
 arch=('any')
@@ -18,7 +18,7 @@ backup=()
 options=()
 install=
 changelog=
-source=("git+keybase://private/theunderdog09/newt#tag=v0.1.1-2")
+source=("git+keybase://private/theunderdog09/newt#tag=v0.1.2-1")
 md5sums=('SKIP')
 
 prepare() {

@@ -28,6 +28,12 @@ pub enum Command {
         index: usize,
     },
 
+    /// Print a note's contents to stdout.
+    Cat {
+        /// Index of the file, as displayed by the list command.
+        index: usize,
+    },
+
     /// Edit a note in the configured editor.
     Edit {
         /// Index of the file, as displayed by the list command.
@@ -120,10 +126,7 @@ fn list(config: &Config) -> Result<()> {
 }
 
 fn view(config: &Config, index: usize) -> Result<()> {
-    let files = notes_dir::list(config)?;
-    let file = files
-        .get(index)
-        .ok_or(Error::FileIndexOutOfRange { index })?;
+    let file = notes_dir::file_at_index(config, index)?;
     let status = edit::view_note(config, &file)?;
     if !status.success() {
         eprintln!("Warning: pager process returned with status {}", status);
@@ -131,11 +134,13 @@ fn view(config: &Config, index: usize) -> Result<()> {
     Ok(())
 }
 
+fn cat(config: &Config, index: usize) -> Result<()> {
+    let file = notes_dir::file_at_index(config, index)?;
+    notes_dir::cat_file(config, file, &mut std::io::stdout())
+}
+
 fn edit(config: &Config, index: usize) -> Result<()> {
-    let files = notes_dir::list(config)?;
-    let file = files
-        .get(index)
-        .ok_or(Error::FileIndexOutOfRange { index })?;
+    let file = notes_dir::file_at_index(config, index)?;
     let status = edit::edit_note(config, &file)?;
     if !status.success() {
         eprintln!("Warning: editor process returned with status {}", status);
@@ -155,6 +160,7 @@ pub fn execute(command: Command, config: Config) -> Result<()> {
         Command::New { name } => new(&config, name),
         Command::List => list(&config),
         Command::View { index } => view(&config, index),
+        Command::Cat { index } => cat(&config, index),
         Command::Edit { index } => edit(&config, index),
         Command::NotesDir => notes_dir(&config),
     }

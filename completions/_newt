@@ -9,6 +9,7 @@ _newt_command() {
     new:"Create a new note (default command)"
     notes-dir:"Print the notes directory path"
     view:"View a note in a pager"
+    cat:"Print a note to stdout"
   )
 
   if (( CURRENT == 1 )); then
@@ -39,6 +40,10 @@ _newt_new() {
 }
 
 _newt_view() {
+  _newt_helper_files
+}
+
+_newt_cat() {
   _newt_helper_files
 }
 
