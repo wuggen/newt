@@ -1,6 +1,6 @@
 [package]
 name = "newt"
-version = "0.1.1"
+version = "0.2.0"
 authors = ["John Andrews <theunderdog09@gmail.com>"]
 edition = "2018"
 
@@ -10,4 +10,4 @@ edition = "2018"
 chrono = "0.4.19"
 lazy_static = "1.4.0"
 structopt = "0.3.21"
-thiserror = "1.0.23"
+thiserror = "1.0.24"
