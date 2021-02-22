@@ -1,6 +1,6 @@
 # Maintainer: John Andrews <theunderdog09@gmail.com>
 pkgname=newt
-pkgver=0.1.2
+pkgver=0.2.0
 pkgrel=1
 epoch=
 pkgdesc="Minimal CLI note-taking manager"
@@ -18,7 +18,7 @@ backup=()
 options=()
 install=
 changelog=
-source=("git+keybase://private/theunderdog09/newt#tag=v0.1.2-1")
+source=("git+keybase://private/theunderdog09/newt#tag=v${pkgver}")
 md5sums=('SKIP')
 
 prepare() {
@@ -26,17 +26,17 @@ prepare() {
 }
 
 build() {
-	cd "$srcdir/$pkgname"
-	cargo build --locked --release --target-dir=target
+  cd "$srcdir/$pkgname"
+  cargo build --locked --release --target-dir=target
 }
 
 check() {
-	cd "$srcdir/$pkgname"
-	cargo test --release --locked --target-dir=target
+  cd "$srcdir/$pkgname"
+  cargo test --release --locked --target-dir=target
 }
 
 package() {
-	cd "$srcdir/$pkgname"
-	install -Dm 755 target/release/$pkgname -t "$pkgdir/usr/bin"
+  cd "$srcdir/$pkgname"
+  install -Dm 755 target/release/$pkgname -t "$pkgdir/usr/bin"
   install -Dm 644 "$srcdir/$pkgname/completions/_newt" -t "$pkgdir/usr/share/zsh/site-functions"
 }
