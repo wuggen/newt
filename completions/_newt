@@ -9,6 +9,7 @@ _newt_command() {
     new:"Create a new note (default command)"
     notes-dir:"Print the notes directory path"
     view:"View a note in a pager"
+    rm:"Remove a note"
     cat:"Print a note to stdout"
   )
 
@@ -40,6 +41,10 @@ _newt_new() {
 }
 
 _newt_view() {
+  _newt_helper_files
+}
+
+_newt_rm() {
   _newt_helper_files
 }
 

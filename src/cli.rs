@@ -40,6 +40,12 @@ pub enum Command {
         index: usize,
     },
 
+    /// Delete a note from the notes directory.
+    Rm {
+        /// Index of the file, as displayed by the list command.
+        index: usize,
+    },
+
     /// Print the canonicalized path to the configured notes directory.
     NotesDir,
 }
@@ -64,6 +70,10 @@ pub struct Options {
     /// The editor command to invoke for editing notes.
     #[structopt(short, long)]
     pub editor: Option<PathBuf>,
+
+    /// Assume a 'yes' answer to all interactive prompts.
+    #[structopt(short, long)]
+    pub yes: bool,
 
     /// Print verbose debugging output.
     #[structopt(long, short)]
@@ -148,6 +158,26 @@ fn edit(config: &Config, index: usize) -> Result<()> {
     Ok(())
 }
 
+fn rm(config: &Config, index: usize) -> Result<()> {
+    let file = notes_dir::file_at_index(config, index)?;
+    let file_name = file.display();
+    let first_line = notes_dir::first_line(config, &file, 77)?;
+
+    let prompt = if let Some(line) = first_line {
+        format!("Remove file {} with first line:\n\"{}\"?", file_name, line)
+    } else {
+        format!("Remove empty file {}?", file_name)
+    };
+    let yes_response = Some("Removing file");
+    let no_response = Some("Cancelling");
+
+    if util::prompt(&prompt, Some(false), yes_response, no_response)? {
+        notes_dir::rm_file(config, &file)?;
+    }
+
+    Ok(())
+}
+
 fn notes_dir(config: &Config) -> Result<()> {
     let path = config.notes_dir()?;
     println!("{}", path.canonicalize()?.display());
@@ -162,6 +192,7 @@ pub fn execute(command: Command, config: Config) -> Result<()> {
         Command::View { index } => view(&config, index),
         Command::Cat { index } => cat(&config, index),
         Command::Edit { index } => edit(&config, index),
+        Command::Rm { index } => rm(&config, index),
         Command::NotesDir => notes_dir(&config),
     }
 }
@@ -172,6 +203,10 @@ pub fn run() -> Result<()> {
 
     if options.verbose {
         crate::debug::verbose(true);
+    }
+
+    if options.yes {
+        crate::util::set_yes(true);
     }
 
     let config = options.config()?;

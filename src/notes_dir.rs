@@ -109,3 +109,13 @@ pub fn first_line<P: AsRef<Path>>(
         }
     }))
 }
+
+/// Remove a file from the configured notes directory.
+pub fn rm_file<P: AsRef<Path>>(
+    config: &Config,
+    path: P,
+) -> Result<()> {
+    let path = config.notes_dir()?.join(path);
+    fs::remove_file(path)?;
+    Ok(())
+}
