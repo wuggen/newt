@@ -1,14 +1,14 @@
 # Maintainer: John Andrews <theunderdog09@gmail.com>
 pkgname=newt
 pkgver=0.2.0
-pkgrel=1
+pkgrel=2
 epoch=
 pkgdesc="Minimal CLI note-taking manager"
 arch=('any')
-license=('BSD')
+license=('MIT')
 groups=()
 depends=()
-makedepends=('cargo' 'git' 'kbfs')
+makedepends=('cargo')
 checkdepends=()
 optdepends=()
 provides=()
@@ -18,25 +18,25 @@ backup=()
 options=()
 install=
 changelog=
-source=("git+keybase://private/theunderdog09/newt#tag=v${pkgver}")
-md5sums=('SKIP')
+source=("https://github.com/wuggen/newt/archive/refs/tags/v${pkgver}.tar.gz")
+sha256sums=('73c600f8cb4dfe6449d688c49336c1204b73775dcc8a9a1f63786e7dc6a5b0f0')
 
 prepare() {
   return 0
 }
 
 build() {
-  cd "$srcdir/$pkgname"
+  cd "$pkgname-$pkgver"
   cargo build --locked --release --target-dir=target
 }
 
 check() {
-  cd "$srcdir/$pkgname"
+  cd "$pkgname-$pkgver"
   cargo test --release --locked --target-dir=target
 }
 
 package() {
-  cd "$srcdir/$pkgname"
+  cd "$pkgname-$pkgver"
   install -Dm 755 target/release/$pkgname -t "$pkgdir/usr/bin"
-  install -Dm 644 "$srcdir/$pkgname/completions/_newt" -t "$pkgdir/usr/share/zsh/site-functions"
+  install -Dm 644 completions/_newt -t "$pkgdir/usr/share/zsh/site-functions"
 }
